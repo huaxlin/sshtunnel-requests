@@ -34,6 +34,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install .
           python -m pip install -r requirements_test.txt
+          cd e2e_tests && docker-compose logs ssh; cd ..
+          cd e2e_tests && docker-compose exec ssh cat /config/logs/openssh/current; cd ..
           chmod 600 ./e2e_tests/ssh-server-config/ssh_host_rsa_key
+          ssh -o "StrictHostKeyChecking=no" linuxserver@127.0.0.1 -p 2223 -i ./e2e_tests/ssh-server-config/ssh_host_rsa_key -v "uname -a"
       - name: Run tests
         run: pytest e2e_tests
