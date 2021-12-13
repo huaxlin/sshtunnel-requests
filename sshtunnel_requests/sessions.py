@@ -25,20 +25,20 @@ class _SSHTunnelSession(SessionRedirectMixin, _Session):
 class Session(_SSHTunnelSession):
 
     def __init__(self,
-                 ssh_host,
-                 ssh_port,
-                 ssh_username=None,
-                 ssh_password=None,
-                 ssh_private_key=None,
-                 ssh_private_key_password=None):
+                 host,
+                 port,
+                 username=None,
+                 password=None,
+                 private_key=None,
+                 private_key_password=None):
         self.ssh_conf = ssh.Config(
             **{
-                'host': ssh_host,
-                'port': ssh_port,
-                'username': ssh_username,
-                'password': ssh_password,
-                'private_key': ssh_private_key,
-                'private_key_password': ssh_private_key_password,
+                'host': host,
+                'port': port,
+                'username': username,
+                'password': password,
+                'private_key': private_key,
+                'private_key_password': private_key_password,
             })
         super().__init__()
 
@@ -55,12 +55,34 @@ class Session(_SSHTunnelSession):
 
         return super().request(method, tunnel_local_bind_url, *args, **kwargs)
 
+    @classmethod
+    def from_url(cls, url, private_key=None, private_key_password=None):
+        """
+        For example::
 
-def session(ssh_host,
-            ssh_port,
-            ssh_username=None,
-            ssh_password=None,
-            ssh_private_key=None,
-            ssh_private_key_password=None):
-    return Session(ssh_host, ssh_port, ssh_username, ssh_password,
-                   ssh_private_key, ssh_private_key_password)
+            ssh://[[username]:[password]]@localhost:22
+        """
+        from urllib.parse import ParseResult, urlparse
+
+        parsed: ParseResult = urlparse(url)
+        if parsed.scheme != 'ssh':
+            raise ValueError('only support "ssh" scheme, '
+                             f'but got {parsed.scheme}')
+
+        session = cls(host=parsed.hostname,
+                      username=parsed.username,
+                      port=parsed.port,
+                      password=parsed.password,
+                      private_key=private_key,
+                      private_key_password=private_key_password)
+        return session
+
+
+def session(host,
+            port,
+            username=None,
+            password=None,
+            private_key=None,
+            private_key_password=None):
+    return Session(host, port, username, password, private_key,
+                   private_key_password)

@@ -6,7 +6,8 @@ SSH_CONF: ssh.Config = None
 
 
 def request(method, url, *, sshtunnelconf: ssh.Config, **kwargs):
-    ssh_conf = {'ssh_' + k: v for k, v in sshtunnelconf.as_dict().items()}
+    # ssh_conf = {'ssh_' + k: v for k, v in sshtunnelconf.as_dict().items()}
+    ssh_conf = sshtunnelconf.as_dict()
     with sessions.Session(**ssh_conf) as session:
         return session.request(method=method, url=url, **kwargs)
 
