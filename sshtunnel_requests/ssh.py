@@ -1,8 +1,11 @@
+import threading
 import typing as T
-from dataclasses import dataclass
-from dataclasses import field
-from dataclasses import asdict
+import weakref
+from dataclasses import asdict, dataclass, field
+from functools import namedtuple
 from logging import getLogger
+
+from sshtunnel import SSHTunnelForwarder
 
 logger = getLogger(__name__)
 
@@ -16,16 +19,15 @@ class Config:
     private_key: T.Optional[str] = None
     # private_key_string: T.Optional[str] = None
     private_key_password: T.Optional[str] = None
+
     # set_keepalive: int = field(default=5)
 
     def as_dict(self) -> dict:
         return asdict(self)
 
 
-from sshtunnel import SSHTunnelForwarder
-
-from functools import namedtuple
 class HostPort(namedtuple('HostPort', ('host', 'port'))):
+
     def __str__(self):
         return f'{self.host}:{self.port}'
 
@@ -34,6 +36,7 @@ class HostPort(namedtuple('HostPort', ('host', 'port'))):
 
 
 class Connection:
+
     def __init__(
         self,
         remote_hp: HostPort,
@@ -52,10 +55,12 @@ class Connection:
         if self._tunnel is None:
             self._tunnel = self.create_tunnel()
             self._tunnel.start()
-            logger.info('Create SSH Tunnel: %s -> %s -> %s',
-                        HostPort(self._tunnel.local_bind_host, self._tunnel.local_bind_port),
-                        HostPort(self.ssh_conf.host, self.ssh_conf.port),
-                        self.remote_hp)
+            logger.info(
+                'Create SSH Tunnel: %s -> %s -> %s',
+                HostPort(self._tunnel.local_bind_host,
+                         self._tunnel.local_bind_port),
+                HostPort(self.ssh_conf.host, self.ssh_conf.port),
+                self.remote_hp)
         return self._tunnel
 
     def create_tunnel(self, ssh_conf=None):
@@ -70,21 +75,20 @@ class Connection:
             ssh_pkey=self.ssh_conf.private_key,
             ssh_private_key_password=self.ssh_conf.private_key_password,
             remote_bind_address=(self.remote_hp.host, self.remote_hp.port),
-            set_keepalive=5
-        )
+            set_keepalive=5)
         return tunnel
 
 
-#
-# weakref implement cacher
-#
-import threading
-import weakref
+# weakref implement cacher ---------------------------------------------------
+
 
 class Cacher:
+
     def __init__(self, ssh_conf: Config) -> None:
         self.ssh_conf: Config = ssh_conf
-        self.pool: T.Dict[HostPort, weakref.ReferenceType[Connection]] = weakref.WeakValueDictionary()
+        self.pool: T.Dict[
+            HostPort,
+            weakref.ReferenceType[Connection]] = weakref.WeakValueDictionary()
         self.lock = threading.Lock()
 
     def get(self, key: HostPort) -> Connection:
@@ -106,6 +110,7 @@ class Tunnels:
         conn_b(rmeote-host/port) --+--> cacher  ------------+
                                         (sshtunnel server)
     """
+
     def __init__(self) -> None:
         self.pool: T.Dict[Config, Cacher] = {}
         self.lock = threading.Lock()

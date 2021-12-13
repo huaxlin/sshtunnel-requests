@@ -1,21 +1,14 @@
 import typing as T
-from . import sessions
-from . import ssh
+
+from . import sessions, ssh
+
+SSH_CONF: ssh.Config = None
 
 
-def request(
-    method,
-    url,
-    *,
-    sshtunnelconf: ssh.Config,
-    **kwargs
-):
+def request(method, url, *, sshtunnelconf: ssh.Config, **kwargs):
     ssh_conf = {'ssh_' + k: v for k, v in sshtunnelconf.as_dict().items()}
     with sessions.Session(**ssh_conf) as session:
         return session.request(method=method, url=url, **kwargs)
-
-
-SSH_CONF: ssh.Config = None
 
 
 def get(url, params=None, **kwargs):
@@ -23,8 +16,12 @@ def get(url, params=None, **kwargs):
 
 
 def post(url, data=None, json=None, **kwargs):
-    return request('post', url, sshtunnelconf=SSH_CONF,
-                   data=data, json=json, **kwargs)
+    return request('post',
+                   url,
+                   sshtunnelconf=SSH_CONF,
+                   data=data,
+                   json=json,
+                   **kwargs)
 
 
 def put(url, data=None, **kwargs):
