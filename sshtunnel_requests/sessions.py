@@ -1,9 +1,13 @@
 from logging import getLogger
+from os import PathLike
+from typing import Optional
 
 from furl import furl
 from requests.sessions import Session as _Session
 
-from . import ssh
+from sshtunnel_requests.cache import CacheDescriptor
+from sshtunnel_requests.cache import RemoteBindAddress
+from sshtunnel_requests.ssh import Configuration
 
 logger = getLogger(__name__)
 
@@ -23,37 +27,21 @@ class _SSHTunnelSession(SessionRedirectMixin, _Session):
 
 
 class Session(_SSHTunnelSession):
+    caches = CacheDescriptor()
 
     def __init__(self,
-                 host,
-                 port,
-                 username=None,
-                 password=None,
-                 private_key=None,
-                 private_key_password=None):
-        self.ssh_conf = ssh.Config(
-            **{
-                'host': host,
-                'port': port,
-                'username': username,
-                'password': password,
-                'private_key': private_key,
-                'private_key_password': private_key_password,
-            })
+                 host: str,
+                 username: str,
+                 password: Optional[str] = None,
+                 port: int = 22,
+                 private_key: Optional[PathLike] = None,
+                 private_key_password: Optional[str] = None) -> None:
+        self.ssh_config = Configuration(
+            host=host, username=username, password=password, port=port,
+            private_key=private_key,
+            private_key_password=private_key_password)
+
         super().__init__()
-
-    def request(self, method, url, *args, **kwargs):
-        # 在这里持有 connection 引用；保证调用下面 .request() 时，conn._tunnel 不会因为弱引用而被销毁；
-        # 当下面的 .request() return 后，即拿到了 response，则 tunnel 链接被销毁；
-        # 多线程情况下，tunnel 理论上能够被重复使用，但是单线程使用for循环的情况下，理论上无法重复利用，这里需要优化。
-        conn = ssh.create_connection(url, self.ssh_conf)
-
-        _furl = furl(url)
-        _furl.host = conn.tunnel.local_bind_host
-        _furl.port = conn.tunnel.local_bind_port
-        tunnel_local_bind_url = _furl.url
-
-        return super().request(method, tunnel_local_bind_url, *args, **kwargs)
 
     @classmethod
     def from_url(cls, url, private_key=None, private_key_password=None):
@@ -77,6 +65,18 @@ class Session(_SSHTunnelSession):
                       private_key_password=private_key_password)
         return session
 
+    def request(self, method, url, *args, **kwargs):
+        f = furl(url)
+
+        remote_address = RemoteBindAddress(host=f.host, port=f.port)
+
+        with self.caches.get(remote_address) as conn:
+            # replace the actual request url to local bind url
+            f.host, f.port = conn.tunnel.local_bind_host, conn.tunnel.local_bind_port
+            tunnel_local_bind_url = f.url
+
+            return super().request(method, tunnel_local_bind_url, *args, **kwargs)
+
 
 def session(host,
             port,
@@ -84,5 +84,9 @@ def session(host,
             password=None,
             private_key=None,
             private_key_password=None):
-    return Session(host, port, username, password, private_key,
-                   private_key_password)
+    return Session(host=host,
+                   port=port,
+                   username=username,
+                   password=password,
+                   private_key=private_key,
+                   private_key_password=private_key_password)
