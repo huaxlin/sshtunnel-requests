@@ -1,4 +1,3 @@
-import pytest
 import sshtunnel_requests
 
 from const import *
@@ -16,6 +15,7 @@ class TestSSHTunnelRequests():
 
     def test_http_method(self, mocker):
         call_count = 0
+        release_call_count = 0
 
         def mock__init__(self, tunnel_partial, remote_bind_address) -> None:
             nonlocal call_count
@@ -26,8 +26,15 @@ class TestSSHTunnelRequests():
             self._tunnel = None
             self.create_tunnel_connection_lock = threading.Lock()
 
-        mocker.patch('sshtunnel_requests._requests.Connection.__init__',
+        def mock__del__(self):
+            nonlocal release_call_count
+            release_call_count += 1
+            if self._tunnel is not None:
+                self._tunnel.close()
+
+        mocker.patch('sshtunnel_requests.cache.Connection.__init__',
                      mock__init__)
+        mocker.patch('sshtunnel_requests.cache.Connection.__del__', mock__del__)
         requests = sshtunnel_requests.Requests(host=SSH_SERVER_HOST,
                                                username=SSH_SERVER_USERNAME,
                                                port=SSH_SERVER_PORT,
@@ -42,7 +49,8 @@ class TestSSHTunnelRequests():
             assert response.status_code == 200
             expected_partial = {'origin': '10.5.0.2'}
             assert expected_partial.items() <= response.json().items()
-        assert call_count == 1
+        assert release_call_count >= call_count - 1, f'{release_call_count = }'
+        assert call_count == 1, f'{release_call_count = }; {call_count = }'
 
     def test_many_requests_sequential(self, mocker):
         call_count = 0
@@ -56,7 +64,7 @@ class TestSSHTunnelRequests():
             self._tunnel = None
             self.create_tunnel_connection_lock = threading.Lock()
 
-        mocker.patch('sshtunnel_requests._requests.Connection.__init__',
+        mocker.patch('sshtunnel_requests.cache.Connection.__init__',
                      mock__init__)
         requests = sshtunnel_requests.Requests(host=SSH_SERVER_HOST,
                                                username=SSH_SERVER_USERNAME,
@@ -83,7 +91,7 @@ class TestSSHTunnelRequests():
             self._tunnel = None
             self.create_tunnel_connection_lock = threading.Lock()
 
-        mocker.patch('sshtunnel_requests._requests.Connection.__init__',
+        mocker.patch('sshtunnel_requests.cache.Connection.__init__',
                      mock__init__)
         requests = sshtunnel_requests.Requests(host=SSH_SERVER_HOST,
                                                username=SSH_SERVER_USERNAME,
