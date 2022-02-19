@@ -11,6 +11,7 @@ Welcome to sshtunnel-requests's documentation!
    :caption: Contents:
 
    readme
+   history
 
 Indices and tables
 ==================
