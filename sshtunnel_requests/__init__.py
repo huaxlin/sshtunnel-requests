@@ -1,4 +1,4 @@
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 from ._requests import Requests  # noqa
 from .sessions import Session, session  # noqa
