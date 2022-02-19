@@ -2,6 +2,11 @@
 History
 =======
 
+0.1.3
+-----
+
+- bugfix: .readthedocs.yaml
+
 0.1.2
 -----
 
