@@ -2,6 +2,8 @@
 sshtunnel-requests
 ==================
 
+.. image:: https://static.pepy.tech/badge/sshtunnel-requests
+   :target: https://pepy.tech/project/sshtunnel-requests
 
 .. image:: https://github.com/featureoverload/sshtunnel-requests/actions/workflows/ci.yml/badge.svg
    :target: https://github.com/featureoverload/sshtunnel-requests/actions?query=workflow%3Aci
